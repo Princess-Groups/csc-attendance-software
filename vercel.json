@@ -3,13 +3,5 @@
   "buildCommand": "bun run build",
   "outputDirectory": ".output",
   "framework": null,
-  "installCommand": "bun install",
-  "env": {
-    "SUPABASE_PROJECT_ID": "@supabase-project-id",
-    "SUPABASE_PUBLISHABLE_KEY": "@supabase-publishable-key",
-    "SUPABASE_URL": "@supabase-url",
-    "VITE_SUPABASE_PROJECT_ID": "@supabase-project-id",
-    "VITE_SUPABASE_PUBLISHABLE_KEY": "@supabase-publishable-key",
-    "VITE_SUPABASE_URL": "@supabase-url"
-  }
+  "installCommand": "bun install"
 }
