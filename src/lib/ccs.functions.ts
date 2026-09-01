@@ -12,12 +12,18 @@ export const bootstrapSystem = createServerFn({ method: "POST" }).handler(async 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { emailFor } = await import("./ccs.server");
 
-  const { count } = await supabaseAdmin
-    .from("profiles")
-    .select("id", { count: "exact", head: true });
-  if ((count ?? 0) > 0) return { created: false as const };
-
   const userId = "superadmin";
+
+  // Check if superadmin profile already exists
+  const { data: existing } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (existing) return { created: false as const };
+
+  // Create the superadmin auth user
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email: emailFor(userId),
     password: "Super@2026",
@@ -26,6 +32,7 @@ export const bootstrapSystem = createServerFn({ method: "POST" }).handler(async 
   });
   if (error || !data.user) throw new Error(error?.message ?? "Could not create the account.");
 
+  // Create the profile and role
   await supabaseAdmin.from("profiles").insert({
     id: data.user.id,
     name: "Super Admin",
