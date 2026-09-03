@@ -251,3 +251,75 @@ export async function logAudit(
 }
 
 export const emailFor = (userId: string) => `${userId.trim().toLowerCase()}@ccs.local`;
+
+/* ------------------------------------------------------------------ */
+/* Attendance timing overrides (Super Admin)                           */
+/* ------------------------------------------------------------------ */
+
+export type TimingOverrideRow = {
+  id: string;
+  staff_id: string | null;
+  from_date: string;
+  to_date: string;
+  login_time: string;
+  logout_time: string;
+  active: boolean;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type ResolvedTiming = {
+  start: string;
+  end: string;
+  source: "date_override" | "range_override" | "default";
+  overrideId: string | null;
+};
+
+/**
+ * Working timing that applies to one employee on one date.
+ * Priority: date-specific override → date-range override → default timing
+ * (the employee's official times, else the global salary settings).
+ * Employee-specific overrides always beat all-employee overrides.
+ */
+export async function timingForDate(
+  supabase: DB,
+  staffId: string,
+  date: string,
+  fallback?: { start?: string | null; end?: string | null },
+): Promise<ResolvedTiming> {
+  const settings = await getSettings(supabase);
+  const defaults: ResolvedTiming = {
+    start: fallback?.start || settings.office_start_time || "09:00",
+    end: fallback?.end || "19:00",
+    source: "default",
+    overrideId: null,
+  };
+
+  const { data } = await supabase
+    .from("attendance_timing_overrides")
+    .select("id, staff_id, from_date, to_date, login_time, logout_time, active")
+    .eq("active", true)
+    .lte("from_date", date)
+    .gte("to_date", date);
+
+  const rows = ((data ?? []) as TimingOverrideRow[]).filter(
+    (r) => r.staff_id === staffId || r.staff_id === null,
+  );
+  if (rows.length === 0) return defaults;
+
+  const score = (r: TimingOverrideRow) =>
+    (r.from_date === r.to_date ? 2 : 0) + (r.staff_id ? 1 : 0);
+  const best = rows.sort((a, b) => {
+    const diff = score(b) - score(a);
+    if (diff !== 0) return diff;
+    return b.from_date.localeCompare(a.from_date);
+  })[0]!;
+
+  return {
+    start: best.login_time,
+    end: best.logout_time,
+    source: best.from_date === best.to_date ? "date_override" : "range_override",
+    overrideId: best.id,
+  };
+}
