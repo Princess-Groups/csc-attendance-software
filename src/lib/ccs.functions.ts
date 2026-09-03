@@ -137,7 +137,7 @@ export const getStaffDashboard = createServerFn({ method: "POST" })
 export const clockIn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { getSettings } = await import("./ccs.server");
+    const { getSettings, timingForDate } = await import("./ccs.server");
     const { todayIST, lateMinutes } = await import("./salary");
     const { supabase, userId } = context;
     const work_date = todayIST();
@@ -154,7 +154,7 @@ export const clockIn = createServerFn({ method: "POST" })
     const settings = await getSettings(supabase);
     const { data: profile } = await supabase
       .from("profiles")
-      .select("official_start_time, active")
+      .select("official_start_time, official_end_time, active")
       .eq("id", userId)
       .maybeSingle();
     if (profile && profile.active === false) {
@@ -170,7 +170,12 @@ export const clockIn = createServerFn({ method: "POST" })
       .maybeSingle();
 
     const firstLogin = existing?.login_time ?? now;
-    const late = lateMinutes(firstLogin, settings, profile?.official_start_time ?? null);
+    // Super Admin date/date-range timing overrides win over the default times.
+    const timing = await timingForDate(supabase, userId, work_date, {
+      start: profile?.official_start_time ?? null,
+      end: profile?.official_end_time ?? null,
+    });
+    const late = lateMinutes(firstLogin, settings, timing.start);
 
     const { error: sessionError } = await supabase
       .from("attendance_sessions")
@@ -1100,4 +1105,124 @@ export const getAuditLogs = createServerFn({ method: "POST" })
       .limit(role === "super_admin" ? 200 : 25);
     const { data } = await query;
     return { role, logs: data ?? [] };
+  });
+
+
+/* ------------------------------------------------------------------ */
+/* Attendance timing overrides — Super Admin only                      */
+/* ------------------------------------------------------------------ */
+
+const overrideInput = z
+  .object({
+    id: z.string().uuid().optional(),
+    staffId: z.string().uuid().nullable().optional(),
+    fromDate: z.string().min(10, "Choose a valid from date"),
+    toDate: z.string().min(10, "Choose a valid to date"),
+    loginTime: z.string().min(4, "Login time is required"),
+    logoutTime: z.string().min(4, "Logout time is required"),
+    note: z.string().max(200).optional(),
+    active: z.boolean().optional(),
+  })
+  .refine((v) => v.toDate >= v.fromDate, { message: "To date cannot be before the from date." })
+  .refine((v) => v.logoutTime > v.loginTime, {
+    message: "Logout time must be later than the login time.",
+  });
+
+export const listTimingOverrides = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { requireSuper } = await import("./ccs.server");
+    const { supabase, userId } = context;
+    await requireSuper(supabase, userId);
+
+    const [{ data: rows }, { data: profiles }] = await Promise.all([
+      supabase
+        .from("attendance_timing_overrides")
+        .select("*")
+        .order("from_date", { ascending: false }),
+      supabase.from("profiles").select("id, name, staff_code"),
+    ]);
+    const names = new Map(
+      (profiles ?? []).map((p: { id: string; name: string; staff_code: string }) => [
+        p.id,
+        `${p.name} (${p.staff_code})`,
+      ]),
+    );
+    return {
+      rows: (rows ?? []).map((r: Record<string, any>) => ({
+        id: r['id'] as string,
+        staffId: (r['staff_id'] ?? null) as string | null,
+        staffName: r['staff_id'] ? names.get(r['staff_id']) ?? "Unknown" : "All Employees",
+        fromDate: r['from_date'] as string,
+        toDate: r['to_date'] as string,
+        loginTime: r['login_time'] as string,
+        logoutTime: r['logout_time'] as string,
+        note: (r['note'] ?? null) as string | null,
+        active: Boolean(r['active']),
+        createdBy: r['created_by'] ? names.get(r['created_by']) ?? "Super Admin" : "Super Admin",
+        createdAt: r['created_at'] as string,
+      })),
+    };
+  });
+
+export const saveTimingOverride = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => overrideInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { requireSuper, logAudit } = await import("./ccs.server");
+    const { supabase, userId } = context;
+    await requireSuper(supabase, userId);
+
+    const payload = {
+      staff_id: data.staffId ?? null,
+      from_date: data.fromDate,
+      to_date: data.toDate,
+      login_time: data.loginTime,
+      logout_time: data.logoutTime,
+      note: data.note ?? null,
+      active: data.active ?? true,
+      created_by: userId,
+    };
+
+    if (data.id) {
+      const { data: old } = await supabase
+        .from("attendance_timing_overrides")
+        .select("*")
+        .eq("id", data.id)
+        .maybeSingle();
+      const { error } = await supabase
+        .from("attendance_timing_overrides")
+        .update(payload)
+        .eq("id", data.id);
+      if (error) throw new Error(error.message);
+      await logAudit(supabase, userId, "update", "timing_override", data.id, old, payload);
+      return { ok: true as const, id: data.id };
+    }
+
+    const { data: created, error } = await supabase
+      .from("attendance_timing_overrides")
+      .insert(payload)
+      .select("id")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    await logAudit(supabase, userId, "create", "timing_override", created?.id ?? null, null, payload);
+    return { ok: true as const, id: created?.id ?? null };
+  });
+
+export const deleteTimingOverride = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { requireSuper, logAudit } = await import("./ccs.server");
+    const { supabase, userId } = context;
+    await requireSuper(supabase, userId);
+    const { data: old } = await supabase
+      .from("attendance_timing_overrides")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    const { error } = await supabase.from("attendance_timing_overrides").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    await logAudit(supabase, userId, "delete", "timing_override", data.id, old, null);
+    return { ok: true as const };
   });
