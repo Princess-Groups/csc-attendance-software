@@ -108,6 +108,56 @@ export type Database = {
           },
         ]
       }
+      attendance_timing_overrides: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          from_date: string
+          id: string
+          login_time: string
+          logout_time: string
+          note: string | null
+          staff_id: string | null
+          to_date: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          from_date: string
+          id?: string
+          login_time: string
+          logout_time: string
+          note?: string | null
+          staff_id?: string | null
+          to_date: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          from_date?: string
+          id?: string
+          login_time?: string
+          logout_time?: string
+          note?: string | null
+          staff_id?: string | null
+          to_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_timing_overrides_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
