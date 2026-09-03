@@ -1274,12 +1274,11 @@ function TimingOverridePanel({ rows, onSaved }: { rows: Row[]; onSaved: () => vo
   const submit = async () => {
     const from = form.fromDate;
     const to = mode === "single" ? form.fromDate : form.toDate;
-    if (!from) return toast.error("Please choose a date.");
-    if (mode === "range" && !to) return toast.error("Please choose a To date.");
-    if (to < from) return toast.error("To date cannot be before the From date.");
-    if (!form.loginTime || !form.logoutTime) return toast.error("Login and logout time are required.");
-    if (form.logoutTime <= form.loginTime)
-      return toast.error("Logout time must be later than the login time.");
+    if (!from) { toast.error("Please choose a date."); return; }
+    if (mode === "range" && !to) { toast.error("Please choose a To date."); return; }
+    if (to < from) { toast.error("To date cannot be before the From date."); return; }
+    if (!form.loginTime || !form.logoutTime) { toast.error("Login and logout time are required."); return; }
+    if (form.logoutTime <= form.loginTime) { toast.error("Logout time must be later than the login time."); return; }
 
     const who = form.staffId === "all" ? "all employees" : rows.find((r) => r.profile.id === form.staffId)?.profile.name ?? "the employee";
     const when = from === to ? from : `${from} to ${to}`;
