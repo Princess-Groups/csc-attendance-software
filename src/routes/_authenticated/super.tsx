@@ -19,6 +19,9 @@ import {
   getSalaryHistory,
   deleteSalaryHistory,
   getActivityLog,
+  listTimingOverrides,
+  saveTimingOverride,
+  deleteTimingOverride,
 
 } from "@/lib/ccs.functions";
 import { loginIdFor, BRANCHES } from "@/lib/ccs-constants";
@@ -134,6 +137,7 @@ function SuperPage() {
             <TabsTrigger className="rounded-xl" value="exceptions">Exceptions</TabsTrigger>
             <TabsTrigger className="rounded-xl" value="users">User Management</TabsTrigger>
             <TabsTrigger className="rounded-xl" value="activity">Login / Logout History</TabsTrigger>
+            <TabsTrigger className="rounded-xl" value="timing">Attendance Timing Override</TabsTrigger>
             <TabsTrigger className="rounded-xl" value="audit">Audit Logs</TabsTrigger>
 
           </TabsList>
@@ -233,6 +237,10 @@ function SuperPage() {
                 </Table>
               </div>
             </Panel>
+          </TabsContent>
+
+          <TabsContent value="timing" className="mt-4">
+            <TimingOverridePanel rows={q.data.rows as Row[]} onSaved={refresh} />
           </TabsContent>
 
           <TabsContent value="activity" className="mt-4">
@@ -1217,3 +1225,248 @@ function ActivityPanel() {
   );
 }
 
+
+
+/* ------------------------------------------------------------------ */
+/* Attendance Timing Override (Super Admin only)                       */
+/* ------------------------------------------------------------------ */
+
+type OverrideForm = {
+  id: string | null;
+  staffId: string;
+  fromDate: string;
+  toDate: string;
+  loginTime: string;
+  logoutTime: string;
+  note: string;
+  active: boolean;
+};
+
+const emptyOverride = (): OverrideForm => ({
+  id: null,
+  staffId: "all",
+  fromDate: "",
+  toDate: "",
+  loginTime: "09:00",
+  logoutTime: "19:00",
+  note: "",
+  active: true,
+});
+
+function TimingOverridePanel({ rows, onSaved }: { rows: Row[]; onSaved: () => void }) {
+  const load = useServerFn(listTimingOverrides);
+  const save = useServerFn(saveTimingOverride);
+  const remove = useServerFn(deleteTimingOverride);
+  const qc = useQueryClient();
+  const [form, setForm] = useState<OverrideForm>(emptyOverride);
+  const [mode, setMode] = useState<"single" | "range">("single");
+  const [busy, setBusy] = useState(false);
+
+  const q = useQuery({ queryKey: ["timing-overrides"], queryFn: () => load({}) });
+  const list = q.data?.rows ?? [];
+  const set = (patch: Partial<OverrideForm>) => setForm((f) => ({ ...f, ...patch }));
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["timing-overrides"] });
+    onSaved();
+  };
+
+  const submit = async () => {
+    const from = form.fromDate;
+    const to = mode === "single" ? form.fromDate : form.toDate;
+    if (!from) { toast.error("Please choose a date."); return; }
+    if (mode === "range" && !to) { toast.error("Please choose a To date."); return; }
+    if (to < from) { toast.error("To date cannot be before the From date."); return; }
+    if (!form.loginTime || !form.logoutTime) { toast.error("Login and logout time are required."); return; }
+    if (form.logoutTime <= form.loginTime) { toast.error("Logout time must be later than the login time."); return; }
+
+    const who = form.staffId === "all" ? "all employees" : rows.find((r) => r.profile.id === form.staffId)?.profile.name ?? "the employee";
+    const when = from === to ? from : `${from} to ${to}`;
+    if (!window.confirm(`Are you sure you want to change the attendance timing for ${when} (${who})?`)) return;
+
+    setBusy(true);
+    try {
+      await save({
+        data: {
+          ...(form.id ? { id: form.id } : {}),
+          staffId: form.staffId === "all" ? null : form.staffId,
+          fromDate: from,
+          toDate: to,
+          loginTime: form.loginTime,
+          logoutTime: form.logoutTime,
+          note: form.note,
+          active: form.active,
+        },
+      });
+      toast.success(form.id ? "Timing override updated." : "Timing override saved.");
+      setForm(emptyOverride());
+      setMode("single");
+      refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save the override.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const edit = (r: (typeof list)[number]) => {
+    setMode(r.fromDate === r.toDate ? "single" : "range");
+    setForm({
+      id: r.id,
+      staffId: r.staffId ?? "all",
+      fromDate: r.fromDate,
+      toDate: r.toDate,
+      loginTime: r.loginTime,
+      logoutTime: r.logoutTime,
+      note: r.note ?? "",
+      active: r.active,
+    });
+  };
+
+  const del = async (id: string) => {
+    if (!window.confirm("Delete this timing override? The date will return to the normal office timing.")) return;
+    try {
+      await remove({ data: { id } });
+      toast.success("Timing override deleted.");
+      refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the override.");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Panel
+        title={form.id ? "Edit Timing Override" : "Add Timing Override"}
+        description="Set a custom login / logout timing for one date or a date range. Every other date keeps the normal office timing."
+        action={
+          form.id ? (
+            <Button variant="secondary" className="rounded-2xl" onClick={() => { setForm(emptyOverride()); setMode("single"); }}>
+              Cancel edit
+            </Button>
+          ) : null
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-1">
+            <Label>Employee / Staff</Label>
+            <Select value={form.staffId} onValueChange={(v) => set({ staffId: v })}>
+              <SelectTrigger className="rounded-2xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Employees</SelectItem>
+                {rows.map((r) => (
+                  <SelectItem key={r.profile.id} value={r.profile.id}>
+                    {r.profile.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Apply To</Label>
+            <Select value={mode} onValueChange={(v) => setMode(v as "single" | "range")}>
+              <SelectTrigger className="rounded-2xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="single">One specific date</SelectItem>
+                <SelectItem value="range">Date range</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>{mode === "single" ? "Date" : "From Date"}</Label>
+            <Input type="date" className="rounded-2xl" value={form.fromDate} onChange={(e) => set({ fromDate: e.target.value })} />
+          </div>
+          {mode === "range" ? (
+            <div className="space-y-1">
+              <Label>To Date</Label>
+              <Input type="date" className="rounded-2xl" value={form.toDate} onChange={(e) => set({ toDate: e.target.value })} />
+            </div>
+          ) : null}
+          <div className="space-y-1">
+            <Label>Login Time</Label>
+            <Input type="time" className="rounded-2xl" value={form.loginTime} onChange={(e) => set({ loginTime: e.target.value })} />
+          </div>
+          <div className="space-y-1">
+            <Label>Logout Time</Label>
+            <Input type="time" className="rounded-2xl" value={form.logoutTime} onChange={(e) => set({ logoutTime: e.target.value })} />
+          </div>
+          <div className="space-y-1">
+            <Label>Reason / Note</Label>
+            <Input className="rounded-2xl" value={form.note} placeholder="Optional" onChange={(e) => set({ note: e.target.value })} />
+          </div>
+          <div className="flex items-center gap-3 pt-6">
+            <Switch checked={form.active} onCheckedChange={(v) => set({ active: v })} />
+            <span className="text-sm font-semibold">Active</span>
+          </div>
+          <div className="flex items-end">
+            <Button className="rounded-2xl bubble-gradient font-bold" disabled={busy} onClick={submit}>
+              {busy ? "Saving…" : form.id ? "Update Override" : "Save Override"}
+            </Button>
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Priority: a single-date override wins over a date-range override, and both win over the normal office timing.
+          Late calculation and all salary rules keep working exactly as before, using the timing that applies to that date.
+        </p>
+      </Panel>
+
+      <Panel title="Existing Overrides" description="All configured attendance timing overrides.">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Employee / Staff</TableHead>
+                <TableHead>From Date</TableHead>
+                <TableHead>To Date</TableHead>
+                <TableHead>Login Time</TableHead>
+                <TableHead>Logout Time</TableHead>
+                <TableHead>Created By</TableHead>
+                <TableHead>Created Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-sm text-muted-foreground">
+                    No timing overrides configured. Every date uses the normal office timing.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                list.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-semibold">{r.staffName}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.fromDate}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.toDate}</TableCell>
+                    <TableCell>{r.loginTime}</TableCell>
+                    <TableCell>{r.logoutTime}</TableCell>
+                    <TableCell>{r.createdBy}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.createdAt.slice(0, 10)}</TableCell>
+                    <TableCell>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${r.active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+                        {r.active ? "Active" : "Inactive"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="space-x-2 text-right">
+                      <Button size="sm" variant="secondary" className="rounded-xl" onClick={() => edit(r)}>
+                        Edit
+                      </Button>
+                      <Button size="sm" variant="destructive" className="rounded-xl" onClick={() => del(r.id)}>
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </Panel>
+    </div>
+  );
+}
