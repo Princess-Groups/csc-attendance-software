@@ -3,6 +3,7 @@ import {
   calculateSalary,
   daysInMonth,
   todayIST,
+  DAILY_TIME_ALLOWANCE_MINUTES,
   type SalarySettings,
   type SalaryResult,
 } from "./salary";
@@ -60,6 +61,7 @@ export type AttendanceRow = {
   working_minutes: number;
   status: "present" | "half_day" | "leave" | "absent" | "permission" | "holiday" | "week_off";
   late_minutes: number;
+  permission_minutes: number;
   half_day: boolean;
   note: string | null;
 };
@@ -88,6 +90,9 @@ export type AttendanceSummary = {
   lateDays: number;
   lateMinutes: number;
   averageLateMinutes: number;
+  permissionMinutes: number;
+  /** Late + permission minutes exceeding the daily 2-hour allowance. */
+  shortfallMinutes: number;
   workingMinutes: number;
   attendancePercent: number;
 };
@@ -113,6 +118,18 @@ export function summarize(
   const unpaidLeaveDays = Number(Math.max(0, leaveDays - paidLeaveDays).toFixed(2));
   const lateRows = attendance.filter((a) => (a.late_minutes || 0) > 0);
   const lateMinutes = lateRows.reduce((s, a) => s + (a.late_minutes || 0), 0);
+  const permissionMinutes = attendance.reduce((s, a) => s + (a.permission_minutes || 0), 0);
+  // Per day the first 2 hours of combined late + permission time are free;
+  // only time beyond that allowance is deductible.
+  const shortfallMinutes = attendance.reduce(
+    (s, a) =>
+      s +
+      Math.max(
+        0,
+        (a.late_minutes || 0) + (a.permission_minutes || 0) - DAILY_TIME_ALLOWANCE_MINUTES,
+      ),
+    0,
+  );
   const workingMinutes = attendance.reduce((s, a) => s + (a.working_minutes || 0), 0);
   const credited = presentDays + halfDays * 0.5;
 
@@ -131,6 +148,8 @@ export function summarize(
     lateDays: lateRows.length,
     lateMinutes,
     averageLateMinutes: lateRows.length ? Math.round(lateMinutes / lateRows.length) : 0,
+    permissionMinutes,
+    shortfallMinutes,
     workingMinutes,
     attendancePercent: totalWorkingDays
       ? Number(((credited / totalWorkingDays) * 100).toFixed(1))
@@ -200,6 +219,7 @@ export async function computeSalaryFor(
       (s: number, i: { amount: number }) => s + Number(i.amount || 0),
       0,
     ),
+    shortfallMinutes: summary.shortfallMinutes,
   });
 
   // Persist the calculated result so frontend and backend always agree.
@@ -215,6 +235,7 @@ export async function computeSalaryFor(
       waived_leave: result.waivedLeave,
       deductible_leave: result.deductibleLeave,
       salary_deduction: result.salaryDeduction,
+      time_deduction: result.timeDeduction,
       incentive: result.incentive,
       final_salary: result.finalSalary,
       calculated_at: new Date().toISOString(),
