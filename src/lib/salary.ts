@@ -26,6 +26,11 @@ export type SalaryInput = {
   waivedAmount: number;
   /** Approved incentives for the month. */
   incentive: number;
+  /**
+   * Deductible late + permission minutes for the month, AFTER the per-day
+   * 2-hour allowance has been applied day by day (computed by the backend).
+   */
+  shortfallMinutes?: number;
 };
 
 export type SalaryResult = {
@@ -43,8 +48,16 @@ export type SalaryResult = {
   incentive: number;
   adjustedSalary: number;
   finalSalary: number;
+  /** Late + permission minutes deducted this month (after daily allowance). */
+  shortfallMinutes: number;
+  hourlySalary: number;
+  /** Deduction caused by late/permission time only (leave deduction is separate). */
+  timeDeduction: number;
   steps: string[];
 };
+
+/** Free per-day allowance shared by late time and permission time. */
+export const DAILY_TIME_ALLOWANCE_MINUTES = 120;
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
