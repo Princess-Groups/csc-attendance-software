@@ -79,7 +79,15 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
   const deductibleLeave = round2(Math.max(0, totalLeave - paidLeave - waivedLeave));
   const rawDeduction = round2(dailySalary * deductibleLeave);
   const waivedAmount = round2(Math.max(0, input.waivedAmount || 0));
-  const salaryDeduction = round2(Math.min(monthlySalary, Math.max(0, rawDeduction - waivedAmount)));
+  const leaveDeduction = round2(Math.max(0, rawDeduction - waivedAmount));
+
+  // Late + permission time: exact-duration deduction beyond the daily allowance.
+  const shortfallMinutes = Math.max(0, Number(input.shortfallMinutes) || 0);
+  const fullDayHours = Math.max(1, (Number(input.settings.full_day_minutes) || 480) / 60);
+  const hourlySalary = round2(dailySalary / fullDayHours);
+  const timeDeduction = round2(hourlySalary * (shortfallMinutes / 60));
+
+  const salaryDeduction = round2(Math.min(monthlySalary, leaveDeduction + timeDeduction));
 
   const adjustedSalary = round2(Math.max(0, monthlySalary - salaryDeduction));
   const incentive = round2(Math.max(0, Number(input.incentive) || 0));
