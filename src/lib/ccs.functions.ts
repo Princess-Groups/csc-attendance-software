@@ -470,7 +470,7 @@ export const getStaffDetail = createServerFn({ method: "POST" })
 export const setAttendance = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (d: { staffId: string; date: string; status: string; note?: string }) =>
+    (d: { staffId: string; date: string; status: string; note?: string; permissionHours?: number }) =>
       z
         .object({
           staffId: z.string().uuid(),
@@ -486,6 +486,7 @@ export const setAttendance = createServerFn({ method: "POST" })
           ]),
 
           note: z.string().max(200).optional(),
+          permissionHours: z.number().min(0).max(24).optional(),
         })
         .parse(d),
   )
@@ -506,6 +507,9 @@ export const setAttendance = createServerFn({ method: "POST" })
       work_date: data.date,
       status: data.status,
       half_day: data.status === "half_day",
+      // Permission hours are only meaningful on permission days.
+      permission_minutes:
+        data.status === "permission" ? Math.round((data.permissionHours ?? 2) * 60) : 0,
       note: data.note ?? null,
       updated_at: new Date().toISOString(),
     };

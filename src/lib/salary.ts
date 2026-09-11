@@ -26,6 +26,11 @@ export type SalaryInput = {
   waivedAmount: number;
   /** Approved incentives for the month. */
   incentive: number;
+  /**
+   * Deductible late + permission minutes for the month, AFTER the per-day
+   * 2-hour allowance has been applied day by day (computed by the backend).
+   */
+  shortfallMinutes?: number;
 };
 
 export type SalaryResult = {
@@ -43,8 +48,16 @@ export type SalaryResult = {
   incentive: number;
   adjustedSalary: number;
   finalSalary: number;
+  /** Late + permission minutes deducted this month (after daily allowance). */
+  shortfallMinutes: number;
+  hourlySalary: number;
+  /** Deduction caused by late/permission time only (leave deduction is separate). */
+  timeDeduction: number;
   steps: string[];
 };
+
+/** Free per-day allowance shared by late time and permission time. */
+export const DAILY_TIME_ALLOWANCE_MINUTES = 120;
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -66,7 +79,15 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
   const deductibleLeave = round2(Math.max(0, totalLeave - paidLeave - waivedLeave));
   const rawDeduction = round2(dailySalary * deductibleLeave);
   const waivedAmount = round2(Math.max(0, input.waivedAmount || 0));
-  const salaryDeduction = round2(Math.min(monthlySalary, Math.max(0, rawDeduction - waivedAmount)));
+  const leaveDeduction = round2(Math.max(0, rawDeduction - waivedAmount));
+
+  // Late + permission time: exact-duration deduction beyond the daily allowance.
+  const shortfallMinutes = Math.max(0, Number(input.shortfallMinutes) || 0);
+  const fullDayHours = Math.max(1, (Number(input.settings.full_day_minutes) || 480) / 60);
+  const hourlySalary = round2(dailySalary / fullDayHours);
+  const timeDeduction = round2(hourlySalary * (shortfallMinutes / 60));
+
+  const salaryDeduction = round2(Math.min(monthlySalary, leaveDeduction + timeDeduction));
 
   const adjustedSalary = round2(Math.max(0, monthlySalary - salaryDeduction));
   const incentive = round2(Math.max(0, Number(input.incentive) || 0));
@@ -78,7 +99,10 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
     `Paid Leave = min(Total Leave, ${paidLeaveAllowance}) = ${paidLeave}`,
     `Waived Leave (exceptions) = ${waivedLeave}`,
     `Deductible Leave = ${totalLeave} - ${paidLeave} - ${waivedLeave} = ${deductibleLeave}`,
-    `Salary Deduction = ${dailySalary} × ${deductibleLeave} - ${waivedAmount} (waived) = ${salaryDeduction}`,
+    `Leave Deduction = ${dailySalary} × ${deductibleLeave} - ${waivedAmount} (waived) = ${leaveDeduction}`,
+    `Hourly Salary = ${dailySalary} ÷ ${fullDayHours} hours = ${hourlySalary}`,
+    `Late/Permission Deduction = ${hourlySalary} × ${round2(shortfallMinutes / 60)} hrs (after daily 2-hour allowance) = ${timeDeduction}`,
+    `Salary Deduction = ${leaveDeduction} (leave) + ${timeDeduction} (late/permission) = ${salaryDeduction}`,
     `Adjusted Salary = ${monthlySalary} - ${salaryDeduction} = ${adjustedSalary}`,
     `Final Salary = ${adjustedSalary} + ${incentive} (incentive) = ${finalSalary}`,
   ];
@@ -98,6 +122,9 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
     incentive,
     adjustedSalary,
     finalSalary,
+    shortfallMinutes,
+    hourlySalary,
+    timeDeduction,
     steps,
   };
 }
