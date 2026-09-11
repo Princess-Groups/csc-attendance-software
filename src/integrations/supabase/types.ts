@@ -23,6 +23,7 @@ export type Database = {
           login_time: string | null
           logout_time: string | null
           note: string | null
+          permission_minutes: number
           staff_id: string
           status: Database["public"]["Enums"]["attendance_status"]
           updated_at: string
@@ -37,6 +38,7 @@ export type Database = {
           login_time?: string | null
           logout_time?: string | null
           note?: string | null
+          permission_minutes?: number
           staff_id: string
           status?: Database["public"]["Enums"]["attendance_status"]
           updated_at?: string
@@ -51,6 +53,7 @@ export type Database = {
           login_time?: string | null
           logout_time?: string | null
           note?: string | null
+          permission_minutes?: number
           staff_id?: string
           status?: Database["public"]["Enums"]["attendance_status"]
           updated_at?: string
@@ -432,6 +435,7 @@ export type Database = {
           salary_days: number
           salary_deduction: number
           staff_id: string
+          time_deduction: number
           total_leave: number
           waived_leave: number
         }
@@ -448,6 +452,7 @@ export type Database = {
           salary_days?: number
           salary_deduction?: number
           staff_id: string
+          time_deduction?: number
           total_leave?: number
           waived_leave?: number
         }
@@ -464,6 +469,7 @@ export type Database = {
           salary_days?: number
           salary_deduction?: number
           staff_id?: string
+          time_deduction?: number
           total_leave?: number
           waived_leave?: number
         }

@@ -1,0 +1,2 @@
+ALTER TABLE public.attendance ADD COLUMN IF NOT EXISTS permission_minutes integer NOT NULL DEFAULT 0;
+ALTER TABLE public.salary_records ADD COLUMN IF NOT EXISTS time_deduction numeric(12,2) NOT NULL DEFAULT 0;
