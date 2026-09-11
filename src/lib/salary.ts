@@ -99,7 +99,10 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
     `Paid Leave = min(Total Leave, ${paidLeaveAllowance}) = ${paidLeave}`,
     `Waived Leave (exceptions) = ${waivedLeave}`,
     `Deductible Leave = ${totalLeave} - ${paidLeave} - ${waivedLeave} = ${deductibleLeave}`,
-    `Salary Deduction = ${dailySalary} × ${deductibleLeave} - ${waivedAmount} (waived) = ${salaryDeduction}`,
+    `Leave Deduction = ${dailySalary} × ${deductibleLeave} - ${waivedAmount} (waived) = ${leaveDeduction}`,
+    `Hourly Salary = ${dailySalary} ÷ ${fullDayHours} hours = ${hourlySalary}`,
+    `Late/Permission Deduction = ${hourlySalary} × ${round2(shortfallMinutes / 60)} hrs (after daily 2-hour allowance) = ${timeDeduction}`,
+    `Salary Deduction = ${leaveDeduction} (leave) + ${timeDeduction} (late/permission) = ${salaryDeduction}`,
     `Adjusted Salary = ${monthlySalary} - ${salaryDeduction} = ${adjustedSalary}`,
     `Final Salary = ${adjustedSalary} + ${incentive} (incentive) = ${finalSalary}`,
   ];
@@ -119,6 +122,9 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
     incentive,
     adjustedSalary,
     finalSalary,
+    shortfallMinutes,
+    hourlySalary,
+    timeDeduction,
     steps,
   };
 }
