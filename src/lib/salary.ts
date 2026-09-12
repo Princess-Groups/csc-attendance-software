@@ -58,6 +58,12 @@ export type SalaryResult = {
   hourlySalary: number;
   /** Deduction caused by late/permission time only (leave deduction is separate). */
   timeDeduction: number;
+  /** Days credited so far (present + half days + paid leave). */
+  earnedDays: number;
+  /** Daily Salary × Earned Days, before late/permission deduction. */
+  earnedGross: number;
+  /** Earned salary after late/permission deduction, plus incentive. */
+  earnedSalary: number;
   steps: string[];
 };
 
