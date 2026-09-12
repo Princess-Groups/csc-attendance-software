@@ -104,6 +104,12 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
   const incentive = round2(Math.max(0, Number(input.incentive) || 0));
   const finalSalary = round2(adjustedSalary + incentive);
 
+  // Earned salary: accumulates day by day with attendance and never counts
+  // absent days.
+  const earnedDays = round2(Math.max(0, Number(input.creditedDays) || 0));
+  const earnedGross = round2(dailySalary * earnedDays);
+  const earnedSalary = round2(Math.max(0, earnedGross - timeDeduction) + incentive);
+
   const steps = [
     `Daily Salary = ${monthlySalary} ÷ ${salaryDays} = ${dailySalary}`,
     `Total Leave = ${leaveFromRegister} (leave register) + ${leaveFromHalfDays} (half days) = ${totalLeave}`,
