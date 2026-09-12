@@ -158,6 +158,7 @@ function SuperPage() {
                       <TableHead>Deductible</TableHead>
                       <TableHead>Deduction</TableHead>
                       <TableHead>Incentive</TableHead>
+                      <TableHead>Earned</TableHead>
                       <TableHead>Final</TableHead>
                       <TableHead />
                     </TableRow>
