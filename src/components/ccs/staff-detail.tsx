@@ -78,7 +78,15 @@ export function StaffDetailDialog({
 
   const applyStatus = () =>
     run(
-      () => attendanceFn({ data: { staffId: staffId!, date, status } }),
+      () =>
+        attendanceFn({
+          data: {
+            staffId: staffId!,
+            date,
+            status,
+            ...(status === "permission" ? { permissionHours } : {}),
+          },
+        }),
       "Attendance updated.",
     );
 
