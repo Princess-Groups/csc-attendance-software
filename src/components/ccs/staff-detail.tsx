@@ -53,6 +53,7 @@ export function StaffDetailDialog({
 
   const [date, setDate] = useState(todayIST());
   const [status, setStatus] = useState("present");
+  const [permissionHours, setPermissionHours] = useState(2);
 
   const q = useQuery({
     queryKey: ["staff-detail", staffId, month],
@@ -77,7 +78,15 @@ export function StaffDetailDialog({
 
   const applyStatus = () =>
     run(
-      () => attendanceFn({ data: { staffId: staffId!, date, status } }),
+      () =>
+        attendanceFn({
+          data: {
+            staffId: staffId!,
+            date,
+            status,
+            ...(status === "permission" ? { permissionHours } : {}),
+          },
+        }),
       "Attendance updated.",
     );
 
@@ -181,6 +190,23 @@ export function StaffDetailDialog({
                   Apply
                 </Button>
               </div>
+              {status === "permission" ? (
+                <div className="mt-3 max-w-xs space-y-1">
+                  <Label>Permission Hours</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={24}
+                    step={0.5}
+                    value={permissionHours}
+                    onChange={(e) => setPermissionHours(Number(e.target.value) || 0)}
+                    className="rounded-2xl"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    First 2 hours per day (late + permission together) are free. Only the extra time is deducted.
+                  </p>
+                </div>
+              ) : null}
               {role === "admin" ? (
                 <p className="mt-2 text-xs text-muted-foreground">
                   Admins can correct attendance but cannot delete records or change salary rules.
