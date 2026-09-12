@@ -242,6 +242,10 @@ function AdminPage() {
                       <TableCell>{formatDuration(r.summary.workingMinutes)}</TableCell>
                       <TableCell className="text-destructive">{inr(r.salary.salaryDeduction)}</TableCell>
                       <TableCell>{inr(r.salary.incentive)}</TableCell>
+                      <TableCell className="font-semibold text-primary">
+                        {inr(r.salary.earnedSalary)}
+                        <span className="ml-1 text-xs text-muted-foreground">({r.salary.earnedDays}d)</span>
+                      </TableCell>
                       <TableCell className="font-display font-bold">{inr(r.salary.finalSalary)}</TableCell>
                       <TableCell>
                         <Button
