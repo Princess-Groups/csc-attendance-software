@@ -53,6 +53,7 @@ export function StaffDetailDialog({
 
   const [date, setDate] = useState(todayIST());
   const [status, setStatus] = useState("present");
+  const [permissionHours, setPermissionHours] = useState(2);
 
   const q = useQuery({
     queryKey: ["staff-detail", staffId, month],
