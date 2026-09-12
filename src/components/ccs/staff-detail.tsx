@@ -128,6 +128,23 @@ export function StaffDetailDialog({
                 <Stat label="Incentive" value={inr(q.data.salary.incentive)} />
                 <Stat label="Final Salary" value={inr(q.data.salary.finalSalary)} />
               </div>
+
+              <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+                <h4 className="font-display text-base font-bold">Earned Salary (attendance based)</h4>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <Stat
+                    label="Days Earned"
+                    value={q.data.salary.earnedDays}
+                    hint={`${inr(q.data.salary.dailySalary)} per day`}
+                  />
+                  <Stat label="Earned So Far" value={inr(q.data.salary.earnedGross)} />
+                  <Stat
+                    label="Earned Salary"
+                    value={inr(q.data.salary.earnedSalary)}
+                    hint="after late/permission, incl. incentive"
+                  />
+                </div>
+              </div>
               {role === "super_admin" ? (
                 <ol className="mt-4 space-y-1 rounded-2xl bg-card p-4 text-xs text-muted-foreground">
                   {q.data.salary.steps.map((s) => (

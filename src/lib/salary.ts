@@ -31,6 +31,11 @@ export type SalaryInput = {
    * 2-hour allowance has been applied day by day (computed by the backend).
    */
   shortfallMinutes?: number;
+  /**
+   * Days actually earned so far this month (present days + half days × 0.5 +
+   * paid leave). Drives the accumulating "Earned Salary" figure.
+   */
+  creditedDays?: number;
 };
 
 export type SalaryResult = {
@@ -53,6 +58,12 @@ export type SalaryResult = {
   hourlySalary: number;
   /** Deduction caused by late/permission time only (leave deduction is separate). */
   timeDeduction: number;
+  /** Days credited so far (present + half days + paid leave). */
+  earnedDays: number;
+  /** Daily Salary × Earned Days, before late/permission deduction. */
+  earnedGross: number;
+  /** Earned salary after late/permission deduction, plus incentive. */
+  earnedSalary: number;
   steps: string[];
 };
 
@@ -93,6 +104,12 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
   const incentive = round2(Math.max(0, Number(input.incentive) || 0));
   const finalSalary = round2(adjustedSalary + incentive);
 
+  // Earned salary: accumulates day by day with attendance and never counts
+  // absent days.
+  const earnedDays = round2(Math.max(0, Number(input.creditedDays) || 0));
+  const earnedGross = round2(dailySalary * earnedDays);
+  const earnedSalary = round2(Math.max(0, earnedGross - timeDeduction) + incentive);
+
   const steps = [
     `Daily Salary = ${monthlySalary} ÷ ${salaryDays} = ${dailySalary}`,
     `Total Leave = ${leaveFromRegister} (leave register) + ${leaveFromHalfDays} (half days) = ${totalLeave}`,
@@ -105,6 +122,7 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
     `Salary Deduction = ${leaveDeduction} (leave) + ${timeDeduction} (late/permission) = ${salaryDeduction}`,
     `Adjusted Salary = ${monthlySalary} - ${salaryDeduction} = ${adjustedSalary}`,
     `Final Salary = ${adjustedSalary} + ${incentive} (incentive) = ${finalSalary}`,
+    `Earned Salary = ${dailySalary} × ${earnedDays} attended day(s) = ${earnedGross} → ${earnedSalary} after late/permission and incentive`,
   ];
 
   return {
@@ -125,6 +143,9 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
     shortfallMinutes,
     hourlySalary,
     timeDeduction,
+    earnedDays,
+    earnedGross,
+    earnedSalary,
     steps,
   };
 }
