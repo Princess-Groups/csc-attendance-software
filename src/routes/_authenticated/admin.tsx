@@ -200,6 +200,7 @@ function AdminPage() {
                   <TableHead>Hours</TableHead>
                   <TableHead>Deduction</TableHead>
                   <TableHead>Incentive</TableHead>
+                  <TableHead>Earned Salary</TableHead>
                   <TableHead>Final Salary</TableHead>
                   <TableHead />
                 </TableRow>
