@@ -175,6 +175,10 @@ function SuperPage() {
                         <TableCell>{r.salary.deductibleLeave}</TableCell>
                         <TableCell className="text-destructive">{inr(r.salary.salaryDeduction)}</TableCell>
                         <TableCell>{inr(r.salary.incentive)}</TableCell>
+                        <TableCell className="font-semibold text-primary">
+                          {inr(r.salary.earnedSalary)}
+                          <span className="ml-1 text-xs text-muted-foreground">({r.salary.earnedDays}d)</span>
+                        </TableCell>
                         <TableCell className="font-display font-bold">{inr(r.salary.finalSalary)}</TableCell>
                         <TableCell>
                           <Button size="sm" variant="secondary" className="rounded-full" onClick={() => setSelected(r.profile.id)}>
