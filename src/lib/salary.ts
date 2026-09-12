@@ -122,6 +122,7 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
     `Salary Deduction = ${leaveDeduction} (leave) + ${timeDeduction} (late/permission) = ${salaryDeduction}`,
     `Adjusted Salary = ${monthlySalary} - ${salaryDeduction} = ${adjustedSalary}`,
     `Final Salary = ${adjustedSalary} + ${incentive} (incentive) = ${finalSalary}`,
+    `Earned Salary = ${dailySalary} × ${earnedDays} attended day(s) = ${earnedGross} → ${earnedSalary} after late/permission and incentive`,
   ];
 
   return {
