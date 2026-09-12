@@ -142,6 +142,9 @@ export function calculateSalary(input: SalaryInput): SalaryResult {
     shortfallMinutes,
     hourlySalary,
     timeDeduction,
+    earnedDays,
+    earnedGross,
+    earnedSalary,
     steps,
   };
 }
