@@ -31,6 +31,11 @@ export type SalaryInput = {
    * 2-hour allowance has been applied day by day (computed by the backend).
    */
   shortfallMinutes?: number;
+  /**
+   * Days actually earned so far this month (present days + half days × 0.5 +
+   * paid leave). Drives the accumulating "Earned Salary" figure.
+   */
+  creditedDays?: number;
 };
 
 export type SalaryResult = {
