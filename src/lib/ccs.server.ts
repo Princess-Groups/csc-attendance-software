@@ -220,6 +220,7 @@ export async function computeSalaryFor(
       0,
     ),
     shortfallMinutes: summary.shortfallMinutes,
+    creditedDays: summary.presentDays + summary.halfDays * 0.5 + summary.paidLeaveDays,
   });
 
   // Persist the calculated result so frontend and backend always agree.
