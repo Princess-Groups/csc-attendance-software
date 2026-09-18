@@ -32,6 +32,19 @@ export const Route = createFileRoute("/")({
 
 const roleHome = { staff: "/staff", admin: "/admin", super_admin: "/super" } as const;
 
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      await new Promise((r) => setTimeout(r, 350 * (i + 1)));
+    }
+  }
+  throw lastError;
+}
+
 function LoginPage() {
   const navigate = useNavigate();
   const me = useServerFn(getMe);
@@ -41,6 +54,7 @@ function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(true);
 
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -48,7 +62,7 @@ function LoginPage() {
         const { data } = await supabase.auth.getSession();
         if (!alive) return;
         if (data.session) {
-          const res = await me({});
+          const res = await withRetry(() => me({}));
           navigate({ to: roleHome[res.role], replace: true });
           return;
         }
@@ -72,7 +86,12 @@ function LoginPage() {
     }
     setBusy(true);
     try {
-      await bootstrap({});
+      try {
+        await bootstrap({});
+      } catch (error) {
+        // First-run setup is optional once the system already exists.
+        console.error("Initial setup check failed", error);
+      }
       const { error } = await supabase.auth.signInWithPassword({
         email: `${id.toLowerCase()}@ccs.local`,
         password,
@@ -81,7 +100,7 @@ function LoginPage() {
         toast.error("Incorrect User ID or password.");
         return;
       }
-      const res = await me({});
+      const res = await withRetry(() => me({}));
       if (res.profile && res.profile.active === false) {
         await supabase.auth.signOut();
         toast.error("Your account has been deactivated. Please contact the Admin.");
