@@ -44,18 +44,19 @@ function LoginPage() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!alive) return;
-      if (data.session) {
-        try {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!alive) return;
+        if (data.session) {
           const res = await me({});
           navigate({ to: roleHome[res.role], replace: true });
           return;
-        } catch {
-          /* fall through to the login form */
         }
+      } catch (error) {
+        console.error("Unable to restore the existing sign-in session", error);
+      } finally {
+        if (alive) setChecking(false);
       }
-      setChecking(false);
     })();
     return () => {
       alive = false;
