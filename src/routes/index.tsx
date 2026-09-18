@@ -32,6 +32,19 @@ export const Route = createFileRoute("/")({
 
 const roleHome = { staff: "/staff", admin: "/admin", super_admin: "/super" } as const;
 
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      await new Promise((r) => setTimeout(r, 350 * (i + 1)));
+    }
+  }
+  throw lastError;
+}
+
 function LoginPage() {
   const navigate = useNavigate();
   const me = useServerFn(getMe);
@@ -40,6 +53,7 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(true);
+
 
   useEffect(() => {
     let alive = true;
