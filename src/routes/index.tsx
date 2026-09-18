@@ -62,7 +62,7 @@ function LoginPage() {
         const { data } = await supabase.auth.getSession();
         if (!alive) return;
         if (data.session) {
-          const res = await me({});
+          const res = await withRetry(() => me({}));
           navigate({ to: roleHome[res.role], replace: true });
           return;
         }
@@ -86,7 +86,12 @@ function LoginPage() {
     }
     setBusy(true);
     try {
-      await bootstrap({});
+      try {
+        await bootstrap({});
+      } catch (error) {
+        // First-run setup is optional once the system already exists.
+        console.error("Initial setup check failed", error);
+      }
       const { error } = await supabase.auth.signInWithPassword({
         email: `${id.toLowerCase()}@ccs.local`,
         password,
@@ -95,7 +100,7 @@ function LoginPage() {
         toast.error("Incorrect User ID or password.");
         return;
       }
-      const res = await me({});
+      const res = await withRetry(() => me({}));
       if (res.profile && res.profile.active === false) {
         await supabase.auth.signOut();
         toast.error("Your account has been deactivated. Please contact the Admin.");
